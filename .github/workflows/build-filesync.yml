@@ -1,0 +1,209 @@
+name: Build TCM FileSync (Windows + macOS)
+
+on:
+  push:
+    branches: [master]
+    tags: ['filesync-v*']
+  workflow_dispatch:
+    inputs:
+      release:
+        description: 'Cut a release'
+        required: false
+        default: 'false'
+
+jobs:
+  build-windows:
+    name: Windows MSI
+    runs-on: windows-2022
+    timeout-minutes: 120
+    env:
+      CRAFT_TARGET: windows-msvc2022_64-cl
+      CRAFT_MASTER_LOCATION: ${{ github.workspace }}\CraftMaster
+      CRAFT_MASTER_CONFIG: ${{ github.workspace }}\craftmaster.ini
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Inkscape (needed for SVG icon conversion)
+        run: choco install inkscape -y
+
+      - name: Setup PATH
+        shell: pwsh
+        run: |
+          echo "${{ github.workspace }}\${{ env.CRAFT_TARGET }}\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Install CraftMaster and dependencies
+        shell: pwsh
+        run: |
+          & cmd /C "git clone -q --depth=1 https://invent.kde.org/packaging/craftmaster.git ${{ env.CRAFT_MASTER_LOCATION }} 2>&1"
+
+          function craft() {
+              python "${{ env.CRAFT_MASTER_LOCATION }}\CraftMaster.py" --config "${{ env.CRAFT_MASTER_CONFIG }}" --target ${{ env.CRAFT_TARGET }} -c $args
+              if($LASTEXITCODE -ne 0) {exit $LASTEXITCODE}
+          }
+
+          craft --add-blueprint-repository "https://github.com/nextcloud/craft-blueprints-kde.git|master|"
+          craft --add-blueprint-repository "https://github.com/nextcloud/desktop-client-blueprints.git|master|"
+          craft craft
+          craft --install-deps nextcloud-client
+
+      - name: Build TCM FileSync client
+        shell: pwsh
+        run: |
+          function craft() {
+              python "${{ env.CRAFT_MASTER_LOCATION }}\CraftMaster.py" --config "${{ env.CRAFT_MASTER_CONFIG }}" --target ${{ env.CRAFT_TARGET }} -c $args
+              if($LASTEXITCODE -ne 0) {exit $LASTEXITCODE}
+          }
+          craft --src-dir ${{ github.workspace }} nextcloud-client
+
+      - name: Package Windows installer
+        shell: pwsh
+        run: |
+          function craft() {
+              python "${{ env.CRAFT_MASTER_LOCATION }}\CraftMaster.py" --config "${{ env.CRAFT_MASTER_CONFIG }}" --target ${{ env.CRAFT_TARGET }} -c $args
+              if($LASTEXITCODE -ne 0) {exit $LASTEXITCODE}
+          }
+          craft --package nextcloud-client
+
+      - name: Find and rename installer
+        shell: pwsh
+        run: |
+          $installers = Get-ChildItem -Path "${{ env.CRAFT_TARGET }}" -Recurse -Filter "*.exe" | Where-Object { $_.Name -match "TheCloudMarket|thecloudmarket|Nextcloud" -and $_.Name -match "Setup|Installer" }
+          if (-not $installers) {
+            $installers = Get-ChildItem -Path "${{ env.CRAFT_TARGET }}" -Recurse -Filter "*.msi"
+          }
+          if (-not $installers) {
+            Write-Host "Looking for any installer-like files..."
+            Get-ChildItem -Path "${{ env.CRAFT_TARGET }}" -Recurse -Include "*.exe","*.msi" | ForEach-Object { Write-Host $_.FullName }
+            throw "No installer found"
+          }
+          $src = $installers | Select-Object -First 1
+          Copy-Item $src.FullName -Destination "TheCloudMarket-FileSync-Setup.exe" -Force
+          Write-Host "Installer: $($src.Name) -> TheCloudMarket-FileSync-Setup.exe ($([math]::Round($src.Length/1MB,1)) MB)"
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TheCloudMarket-FileSync-Windows
+          path: TheCloudMarket-FileSync-Setup.exe
+          retention-days: 30
+
+  build-macos:
+    name: macOS PKG
+    runs-on: macos-latest
+    timeout-minutes: 120
+    env:
+      CRAFT_TARGET: macos-clang_arm64
+      CRAFT_MASTER_LOCATION: ${{ github.workspace }}/CraftMaster
+      CRAFT_MASTER_CONFIG: ${{ github.workspace }}/craftmaster.ini
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Install Inkscape
+        run: brew install --cask inkscape
+
+      - name: Install CraftMaster and dependencies
+        run: |
+          git clone -q --depth=1 https://invent.kde.org/packaging/craftmaster.git "$CRAFT_MASTER_LOCATION"
+
+          python "$CRAFT_MASTER_LOCATION/CraftMaster.py" --config "$CRAFT_MASTER_CONFIG" --target "$CRAFT_TARGET" -c \
+            --add-blueprint-repository "https://github.com/nextcloud/craft-blueprints-kde.git|master|"
+          python "$CRAFT_MASTER_LOCATION/CraftMaster.py" --config "$CRAFT_MASTER_CONFIG" --target "$CRAFT_TARGET" -c \
+            --add-blueprint-repository "https://github.com/nextcloud/desktop-client-blueprints.git|master|"
+          python "$CRAFT_MASTER_LOCATION/CraftMaster.py" --config "$CRAFT_MASTER_CONFIG" --target "$CRAFT_TARGET" -c craft
+          python "$CRAFT_MASTER_LOCATION/CraftMaster.py" --config "$CRAFT_MASTER_CONFIG" --target "$CRAFT_TARGET" -c --install-deps nextcloud-client
+
+      - name: Build TCM FileSync client
+        run: |
+          python "$CRAFT_MASTER_LOCATION/CraftMaster.py" --config "$CRAFT_MASTER_CONFIG" --target "$CRAFT_TARGET" -c \
+            --src-dir "${{ github.workspace }}" nextcloud-client
+
+      - name: Package macOS installer
+        run: |
+          python "$CRAFT_MASTER_LOCATION/CraftMaster.py" --config "$CRAFT_MASTER_CONFIG" --target "$CRAFT_TARGET" -c \
+            --package nextcloud-client
+
+      - name: Find and rename installer
+        run: |
+          pkg=$(find "$CRAFT_TARGET" -name "*.pkg" -o -name "*.dmg" | head -1)
+          if [ -z "$pkg" ]; then
+            echo "Looking for installers..."
+            find "$CRAFT_TARGET" -name "*.pkg" -o -name "*.dmg" -o -name "*.app"
+            echo "No installer found, checking build output..."
+            find "$CRAFT_TARGET" -name "TheCloudMarket*" -o -name "thecloudmarket*" | head -10
+            exit 1
+          fi
+          ext="${pkg##*.}"
+          cp "$pkg" "TheCloudMarket-FileSync.$ext"
+          ls -lh "TheCloudMarket-FileSync.$ext"
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TheCloudMarket-FileSync-macOS
+          path: TheCloudMarket-FileSync.*
+          retention-days: 30
+
+  release:
+    needs: [build-windows, build-macos]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/filesync-v') || github.event.inputs.release == 'true'
+    permissions:
+      contents: write
+    steps:
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: TheCloudMarket-FileSync-Windows
+          path: release/
+
+      - name: Download macOS artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: TheCloudMarket-FileSync-macOS
+          path: release/
+
+      - name: Determine release tag
+        id: tag
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/filesync-v* ]]; then
+            echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=filesync-dev-${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: "TCM FileSync ${{ steps.tag.outputs.tag }}"
+          body: |
+            ## The Cloud Market — File Sync
+
+            Keep your files in sync between your computer and The Cloud Market.
+            Files appear in your Explorer (Windows) or Finder (Mac) and sync automatically.
+
+            ### Install
+            1. Download for your platform below
+            2. Enter your workspace URL (e.g. yourcompany.thecloud.market)
+            3. Sign in via your browser
+            4. Choose folders to sync
+          files: release/*
+          draft: false
+          prerelease: ${{ contains(steps.tag.outputs.tag, 'dev') }}
