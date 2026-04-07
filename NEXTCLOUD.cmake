@@ -7,7 +7,7 @@
 set( APPLICATION_NAME       "The Cloud Market" )
 set( APPLICATION_SHORTNAME  "TheCloudMarket" )
 set( APPLICATION_EXECUTABLE "thecloudmarket" )
-set( APPLICATION_ICON_NAME  "TheCloudMarket" )
+set( APPLICATION_ICON_NAME  "Nextcloud" )
 
 set( APPLICATION_CONFIG_NAME "${APPLICATION_EXECUTABLE}" )
 set( APPLICATION_DOMAIN     "thecloud.market" )
@@ -15,8 +15,8 @@ set( APPLICATION_VENDOR     "The Cloud Market" )
 set( APPLICATION_UPDATE_URL "https://thecloud.market/updates/filesync/" CACHE STRING "URL for updater" )
 set( APPLICATION_HELP_URL   "https://thecloud.market/support" CACHE STRING "URL for the help menu" )
 
-if(APPLE AND EXISTS "${CMAKE_SOURCE_DIR}/theme/colored/TheCloudMarket-macOS-icon.svg")
-    set( APPLICATION_ICON_NAME "TheCloudMarket-macOS" )
+if(APPLE AND EXISTS "${CMAKE_SOURCE_DIR}/theme/colored/Nextcloud-macOS-icon.svg")
+    set( APPLICATION_ICON_NAME "Nextcloud-macOS" )
     message("Using macOS-specific application icon: ${APPLICATION_ICON_NAME}")
 endif()
 
