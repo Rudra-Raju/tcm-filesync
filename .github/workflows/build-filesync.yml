@@ -93,7 +93,14 @@ jobs:
       - name: Find and rename installer
         shell: pwsh
         run: |
-          $installers = Get-ChildItem -Path "${{ env.CRAFT_TARGET }}" -Recurse -Filter "*.exe" | Where-Object { $_.Name -match "TheCloudMarket|thecloudmarket|Nextcloud" -and $_.Name -match "Setup|Installer" }
+          # Craft output format varies — try multiple patterns in priority order.
+          # 1. Named installers (Setup/Installer in name)
+          $installers = Get-ChildItem -Path "${{ env.CRAFT_TARGET }}" -Recurse -Filter "*.exe" | Where-Object { $_.Name -match "TheCloudMarket|thecloudmarket|Nextcloud|nextcloud" } | Where-Object { $_.Name -match "Setup|Installer" }
+          # 2. Craft-generated exe in tmp/ (nextcloud-client-*-windows-*.exe)
+          if (-not $installers) {
+            $installers = Get-ChildItem -Path "${{ env.CRAFT_TARGET }}" -Recurse -Filter "*.exe" | Where-Object { $_.Name -match "nextcloud-client.*windows.*\.exe$" }
+          }
+          # 3. Any MSI
           if (-not $installers) {
             $installers = Get-ChildItem -Path "${{ env.CRAFT_TARGET }}" -Recurse -Filter "*.msi"
           }
