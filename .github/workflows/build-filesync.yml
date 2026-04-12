@@ -61,6 +61,26 @@ jobs:
           }
           craft --src-dir ${{ github.workspace }} nextcloud-client
 
+      - name: Fix upstream blueprint bug (missing import os)
+        shell: pwsh
+        run: |
+          # Upstream nextcloud/desktop-client-blueprints has a NameError in
+          # createPackage() — uses os.path.join without importing os.
+          # Patch the blueprint file before running craft --package.
+          $blueprint = Get-ChildItem -Path "${{ env.CRAFT_TARGET }}" -Recurse -Filter "nextcloud-client.py" | Where-Object { $_.FullName -match "blueprints.*nextcloud-client" } | Select-Object -First 1
+          if ($blueprint) {
+            $content = Get-Content $blueprint.FullName -Raw
+            if ($content -notmatch '(?m)^import os') {
+              $content = "import os`n" + $content
+              Set-Content -Path $blueprint.FullName -Value $content
+              Write-Host "Patched $($blueprint.FullName) — added 'import os'"
+            } else {
+              Write-Host "Blueprint already has 'import os' — no patch needed"
+            }
+          } else {
+            Write-Host "Warning: could not find nextcloud-client.py blueprint to patch"
+          }
+
       - name: Package Windows installer
         shell: pwsh
         run: |
@@ -133,6 +153,21 @@ jobs:
         run: |
           python "$CRAFT_MASTER_LOCATION/CraftMaster.py" --config "$CRAFT_MASTER_CONFIG" --target "$CRAFT_TARGET" -c \
             --src-dir "${{ github.workspace }}" nextcloud-client
+
+      - name: Fix upstream blueprint bug (missing import os)
+        run: |
+          # Same upstream fix as the Windows job — os.path.join without import os
+          blueprint=$(find "$CRAFT_TARGET" -path "*/blueprints/*/nextcloud-client/nextcloud-client.py" 2>/dev/null | head -1)
+          if [ -n "$blueprint" ]; then
+            if ! head -5 "$blueprint" | grep -q "^import os"; then
+              sed -i '1i import os' "$blueprint"
+              echo "Patched $blueprint — added 'import os'"
+            else
+              echo "Blueprint already has 'import os' — no patch needed"
+            fi
+          else
+            echo "Warning: could not find nextcloud-client.py blueprint to patch"
+          fi
 
       - name: Package macOS installer
         run: |
