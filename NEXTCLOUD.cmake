@@ -5,7 +5,7 @@
 # keep the application name and short name the same or different for dev and prod build
 # or some migration logic will behave differently for each build
 set( APPLICATION_NAME       "The Cloud Market" )
-set( APPLICATION_SHORTNAME  "Nextcloud" )
+set( APPLICATION_SHORTNAME  "TheCloudMarket" )
 set( APPLICATION_EXECUTABLE "nextcloud" )
 set( APPLICATION_ICON_NAME  "TheCloudMarket" )
 
@@ -64,18 +64,18 @@ option( APPLICATION_WIZARD_USE_CUSTOM_LOGO "Use the logo from ':/client/theme/co
 ## Windows Shell Extensions & MSI - IMPORTANT: Generate new GUIDs for custom builds with "guidgen" or "uuidgen"
 #
 if(WIN32)
-    # Context Menu
-    set( WIN_SHELLEXT_CONTEXT_MENU_GUID      "{BC6988AB-ACE2-4B81-84DC-DC34F9B24401}" )
+    # Context Menu — TCM-specific GUIDs (must differ from stock Nextcloud)
+    set( WIN_SHELLEXT_CONTEXT_MENU_GUID      "{1A6F78B4-9AB5-466C-9836-E4622E02A6CA}" )
 
     # Overlays
-    set( WIN_SHELLEXT_OVERLAY_GUID_ERROR     "{E0342B74-7593-4C70-9D61-22F294AAFE05}" )
-    set( WIN_SHELLEXT_OVERLAY_GUID_OK        "{E1094E94-BE93-4EA2-9639-8475C68F3886}" )
-    set( WIN_SHELLEXT_OVERLAY_GUID_OK_SHARED "{E243AD85-F71B-496B-B17E-B8091CBE93D2}" )
-    set( WIN_SHELLEXT_OVERLAY_GUID_SYNC      "{E3D6DB20-1D83-4829-B5C9-941B31C0C35A}" )
-    set( WIN_SHELLEXT_OVERLAY_GUID_WARNING   "{E4977F33-F93A-4A0A-9D3C-83DEA0EE8483}" )
+    set( WIN_SHELLEXT_OVERLAY_GUID_ERROR     "{41CB87E8-41C8-46E0-B252-A4F0D69ED5EC}" )
+    set( WIN_SHELLEXT_OVERLAY_GUID_OK        "{08D18E3D-EF75-4A1C-A554-8F625372C04A}" )
+    set( WIN_SHELLEXT_OVERLAY_GUID_OK_SHARED "{F54A5704-B023-4C4B-89A0-1EDAF1B96863}" )
+    set( WIN_SHELLEXT_OVERLAY_GUID_SYNC      "{49799314-D4BE-401E-AE60-EF239B91F814}" )
+    set( WIN_SHELLEXT_OVERLAY_GUID_WARNING   "{31F2F7B9-16C4-4564-8BB2-FCEAE3CA8D1A}" )
 
     # MSI Upgrade Code (without brackets)
-    set( WIN_MSI_UPGRADE_CODE                "FD2FCCA9-BB8F-4485-8F70-A0621B84A7F4" )
+    set( WIN_MSI_UPGRADE_CODE                "75C06785-1385-448D-8EA9-B81794205122" )
 
     # Windows build options
     option( BUILD_WIN_MSI "Build MSI scripts and helper DLL" OFF )
