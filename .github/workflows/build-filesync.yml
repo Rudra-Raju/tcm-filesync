@@ -61,14 +61,20 @@ jobs:
           }
           craft --src-dir ${{ github.workspace }} nextcloud-client
 
-      - name: Patch upstream blueprint (missing import os + TCM appname/company)
+      - name: Patch upstream blueprint (defines + NSIS branding overrides)
         shell: pwsh
         run: |
           $blueprint = Get-ChildItem -Path "${{ env.CRAFT_TARGET }}" -Recurse -Filter "nextcloud-client.py" | Where-Object { $_.FullName -match "blueprints.*nextcloud-client" } | Select-Object -First 1
           if (-not $blueprint) { Write-Host "ERROR: blueprint not found"; exit 1 }
-          python "${{ github.workspace }}\scripts\patch-blueprint.py" $blueprint.FullName
-          Write-Host "--- patched defines ---"
-          Get-Content $blueprint.FullName | Select-String -Pattern 'self\.defines|^import os'
+          $welcome = "${{ github.workspace }}\admin\win\nsi\welcome.bmp"
+          $header  = "${{ github.workspace }}\admin\win\nsi\page_header.bmp"
+          $icon    = "${{ github.workspace }}\theme\colored\TheCloudMarket.ico"
+          foreach ($f in @($welcome,$header,$icon)) {
+            if (-not (Test-Path $f)) { Write-Host "ERROR: missing branding asset: $f"; exit 1 }
+          }
+          python "${{ github.workspace }}\scripts\patch-blueprint.py" $blueprint.FullName $welcome $header $icon
+          Write-Host "--- patched defines + nsis_include ---"
+          Get-Content $blueprint.FullName | Select-String -Pattern 'self\.defines|MUI_|isWindows|^import os'
 
       - name: Package Windows installer
         shell: pwsh
