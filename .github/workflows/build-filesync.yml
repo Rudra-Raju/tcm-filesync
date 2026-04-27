@@ -61,20 +61,48 @@ jobs:
           }
           craft --src-dir ${{ github.workspace }} nextcloud-client
 
-      - name: Patch upstream blueprint (defines + NSIS branding overrides)
+      - name: Patch upstream blueprint (missing import os + TCM appname/company)
         shell: pwsh
         run: |
           $blueprint = Get-ChildItem -Path "${{ env.CRAFT_TARGET }}" -Recurse -Filter "nextcloud-client.py" | Where-Object { $_.FullName -match "blueprints.*nextcloud-client" } | Select-Object -First 1
           if (-not $blueprint) { Write-Host "ERROR: blueprint not found"; exit 1 }
+          python "${{ github.workspace }}\scripts\patch-blueprint.py" $blueprint.FullName
+          Write-Host "--- patched defines ---"
+          Get-Content $blueprint.FullName | Select-String -Pattern 'self\.defines|^import os'
+
+      - name: Override NSIS+Craft branding assets (welcome banner + installer icon)
+        shell: pwsh
+        run: |
           $welcome = "${{ github.workspace }}\admin\win\nsi\welcome.bmp"
-          $header  = "${{ github.workspace }}\admin\win\nsi\page_header.bmp"
           $icon    = "${{ github.workspace }}\theme\colored\TheCloudMarket.ico"
-          foreach ($f in @($welcome,$header,$icon)) {
+          foreach ($f in @($welcome,$icon)) {
             if (-not (Test-Path $f)) { Write-Host "ERROR: missing branding asset: $f"; exit 1 }
           }
-          python "${{ github.workspace }}\scripts\patch-blueprint.py" $blueprint.FullName $welcome $header $icon
-          Write-Host "--- patched defines + nsis_include ---"
-          Get-Content $blueprint.FullName | Select-String -Pattern 'self\.defines|MUI_|isWindows|^import os'
+          # 1. NSIS modern-wizard.bmp — what MUI2 embeds as the welcome page banner
+          #    when MUI_WELCOMEFINISHPAGE_BITMAP is not defined (Craft's template
+          #    does not define it).
+          $nsisDirs = @(
+            "C:\Program Files (x86)\NSIS\Contrib\Graphics\Wizard",
+            "C:\Program Files\NSIS\Contrib\Graphics\Wizard"
+          )
+          $patched = $false
+          foreach ($d in $nsisDirs) {
+            $bmp = Join-Path $d "modern-wizard.bmp"
+            if (Test-Path $bmp) {
+              Copy-Item -Force $welcome $bmp
+              Write-Host "Replaced $bmp with TCM welcome.bmp ($((Get-Item $bmp).Length) bytes)"
+              $patched = $true
+            }
+          }
+          if (-not $patched) { Write-Host "WARNING: NSIS modern-wizard.bmp not found"; }
+          # 2. Craft's default installer icon (data/icons/craft.ico).
+          #    Lives somewhere inside the craft target tree — search and overwrite all copies.
+          $craftIcons = Get-ChildItem -Path "${{ env.CRAFT_TARGET }}" -Recurse -Filter "craft.ico" -ErrorAction SilentlyContinue | Where-Object { $_.FullName -match "data.icons.craft\.ico$" }
+          foreach ($c in $craftIcons) {
+            Copy-Item -Force $icon $c.FullName
+            Write-Host "Replaced $($c.FullName) with TCM icon ($((Get-Item $c.FullName).Length) bytes)"
+          }
+          if (-not $craftIcons) { Write-Host "WARNING: craft.ico not found in target tree"; }
 
       - name: Package Windows installer
         shell: pwsh
