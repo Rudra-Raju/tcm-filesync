@@ -75,23 +75,25 @@ jobs:
         run: |
           $icon = "${{ github.workspace }}\theme\colored\TheCloudMarket.ico"
           if (-not (Test-Path $icon)) { Write-Host "ERROR: missing $icon"; exit 1 }
-          # Search EVERYWHERE on the runner — Craft's craft.ico may live under
-          # CraftMaster, CRAFT_TARGET, the Python site-packages, or anywhere.
-          $searchRoots = @(
-            "${{ env.CRAFT_MASTER_LOCATION }}",
-            "${{ github.workspace }}\${{ env.CRAFT_TARGET }}"
-          )
+          # Sweep both the workspace and the runner C: drive for any craft.ico.
+          # PowerShell -Filter has occasionally missed deeply-nested matches in
+          # past runs, so use -Include with -File and fail loudly if zero hits.
+          $roots = @("${{ github.workspace }}", "C:\")
           $found = @()
-          foreach ($r in $searchRoots) {
-            if (Test-Path $r) {
-              $found += Get-ChildItem -Path $r -Recurse -Filter "craft.ico" -ErrorAction SilentlyContinue
-            }
+          foreach ($r in $roots) {
+            Write-Host "Scanning $r ..."
+            $found += Get-ChildItem -Path $r -Recurse -File -Include "craft.ico" -ErrorAction SilentlyContinue
           }
+          $found = $found | Sort-Object FullName -Unique
           Write-Host "Found $($found.Count) craft.ico file(s):"
           foreach ($c in $found) {
             Write-Host "  $($c.FullName)  ($($c.Length) bytes)"
           }
-          if ($found.Count -eq 0) { Write-Host "ERROR: no craft.ico anywhere"; exit 1 }
+          if ($found.Count -eq 0) {
+            Write-Host "ERROR: no craft.ico anywhere — top-level CRAFT_TARGET tree:"
+            Get-ChildItem -Path "${{ github.workspace }}\${{ env.CRAFT_TARGET }}" -Depth 2 -ErrorAction SilentlyContinue | Select-Object -First 60 FullName | Format-Table -AutoSize
+            exit 1
+          }
           foreach ($c in $found) {
             Copy-Item -Force $icon $c.FullName
             Write-Host "Replaced $($c.FullName) -> $((Get-Item $c.FullName).Length) bytes"
