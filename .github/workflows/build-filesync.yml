@@ -61,43 +61,16 @@ jobs:
           }
           craft --src-dir ${{ github.workspace }} nextcloud-client
 
-      - name: Patch upstream blueprint (missing import os + TCM appname/company)
+      - name: Patch upstream blueprint (defines + installer icon path)
         shell: pwsh
         run: |
           $blueprint = Get-ChildItem -Path "${{ env.CRAFT_TARGET }}" -Recurse -Filter "nextcloud-client.py" | Where-Object { $_.FullName -match "blueprints.*nextcloud-client" } | Select-Object -First 1
           if (-not $blueprint) { Write-Host "ERROR: blueprint not found"; exit 1 }
-          python "${{ github.workspace }}\scripts\patch-blueprint.py" $blueprint.FullName
-          Write-Host "--- patched defines ---"
-          Get-Content $blueprint.FullName | Select-String -Pattern 'self\.defines|^import os'
-
-      - name: Override Craft installer icon (craft.ico -> TheCloudMarket.ico)
-        shell: pwsh
-        run: |
           $icon = "${{ github.workspace }}\theme\colored\TheCloudMarket.ico"
           if (-not (Test-Path $icon)) { Write-Host "ERROR: missing $icon"; exit 1 }
-          # Sweep both the workspace and the runner C: drive for any craft.ico.
-          # PowerShell -Filter has occasionally missed deeply-nested matches in
-          # past runs, so use -Include with -File and fail loudly if zero hits.
-          $roots = @("${{ github.workspace }}", "C:\")
-          $found = @()
-          foreach ($r in $roots) {
-            Write-Host "Scanning $r ..."
-            $found += Get-ChildItem -Path $r -Recurse -File -Include "craft.ico" -ErrorAction SilentlyContinue
-          }
-          $found = $found | Sort-Object FullName -Unique
-          Write-Host "Found $($found.Count) craft.ico file(s):"
-          foreach ($c in $found) {
-            Write-Host "  $($c.FullName)  ($($c.Length) bytes)"
-          }
-          if ($found.Count -eq 0) {
-            Write-Host "ERROR: no craft.ico anywhere — top-level CRAFT_TARGET tree:"
-            Get-ChildItem -Path "${{ github.workspace }}\${{ env.CRAFT_TARGET }}" -Depth 2 -ErrorAction SilentlyContinue | Select-Object -First 60 FullName | Format-Table -AutoSize
-            exit 1
-          }
-          foreach ($c in $found) {
-            Copy-Item -Force $icon $c.FullName
-            Write-Host "Replaced $($c.FullName) -> $((Get-Item $c.FullName).Length) bytes"
-          }
+          python "${{ github.workspace }}\scripts\patch-blueprint.py" $blueprint.FullName $icon
+          Write-Host "--- patched defines ---"
+          Get-Content $blueprint.FullName | Select-String -Pattern 'self\.defines|isWindows|^import os'
 
       - name: Package Windows installer
         shell: pwsh
