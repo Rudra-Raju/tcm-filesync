@@ -612,8 +612,10 @@ else()
     add_executable(nextcloud WIN32 MACOSX_BUNDLE main.cpp ${APP_ICON})
 
     if (BUILD_OWNCLOUD_OSX_BUNDLE)
+      # Spaceless bundle binary (matches OWNCLOUD_OSX_BUNDLE = TheCloudMarket.app).
+      # Display name stays "The Cloud Market" via CFBundleName.
       set_target_properties(nextcloud PROPERTIES
-        OUTPUT_NAME "${APPLICATION_NAME}")
+        OUTPUT_NAME "${APPLICATION_BUNDLE_NAME}")
     else()
       set_target_properties(nextcloud PROPERTIES
         OUTPUT_NAME "${APPLICATION_EXECUTABLE}")
@@ -728,6 +730,11 @@ if(BUILD_OWNCLOUD_OSX_BUNDLE AND NOT BUILD_LIBRARIES_ONLY)
     )
 
     set(cmd_NAME ${APPLICATION_EXECUTABLE}cmd)
+
+    # Belt-and-suspenders: macdeployqt's POST_BUILD on `nextcloud` references
+    # nextcloudcmd by path. Without an explicit dep, parallel runners can fire
+    # the POST_BUILD before nextcloudcmd has been linked into the bundle.
+    add_dependencies(nextcloud nextcloudcmd)
 
     if(CMAKE_BUILD_TYPE MATCHES Debug)
         set(NO_STRIP "-no-strip")

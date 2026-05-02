@@ -163,9 +163,9 @@ set(SHAREDIR ${CMAKE_INSTALL_FULL_DATADIR})
 # Build MacOS app bundle if wished
 if(APPLE AND BUILD_OWNCLOUD_OSX_BUNDLE)
     message(STATUS "Build MacOS app bundle")
-    set(OWNCLOUD_OSX_BUNDLE "${APPLICATION_NAME}.app")
-    set(LIB_INSTALL_DIR "${APPLICATION_NAME}.app/Contents/MacOS")
-    set(BIN_INSTALL_DIR "${APPLICATION_NAME}.app/Contents/MacOS")
+    set(OWNCLOUD_OSX_BUNDLE "${APPLICATION_BUNDLE_NAME}.app")
+    set(LIB_INSTALL_DIR "${APPLICATION_BUNDLE_NAME}.app/Contents/MacOS")
+    set(BIN_INSTALL_DIR "${APPLICATION_BUNDLE_NAME}.app/Contents/MacOS")
     add_definitions(-DBUILD_OWNCLOUD_OSX_BUNDLE)
 endif()
 

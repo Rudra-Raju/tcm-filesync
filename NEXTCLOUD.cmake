@@ -9,6 +9,19 @@ set( APPLICATION_SHORTNAME  "TheCloudMarket" )
 set( APPLICATION_EXECUTABLE "nextcloud" )
 set( APPLICATION_ICON_NAME  "TheCloudMarket" )
 
+# On macOS we use a spaceless bundle directory name ("TheCloudMarket.app").
+# The space in "The Cloud Market.app" causes macdeployqt's internal call to
+# install_name_tool to re-tokenize the path on whitespace and look up
+# `The\ Cloud\ Market.app/Contents/MacOS/nextcloudcmd` as a literal — which
+# never resolves. The Finder display name stays "The Cloud Market" via the
+# CFBundleName plist key (set on the target by Qt/CMake), so users never see
+# the spaceless directory name.
+if(APPLE)
+    set( APPLICATION_BUNDLE_NAME "${APPLICATION_SHORTNAME}" )
+else()
+    set( APPLICATION_BUNDLE_NAME "${APPLICATION_NAME}" )
+endif()
+
 set( APPLICATION_CONFIG_NAME "nextcloud" )
 set( APPLICATION_DOMAIN     "thecloud.market" )
 set( APPLICATION_VENDOR     "The Cloud Market" )
