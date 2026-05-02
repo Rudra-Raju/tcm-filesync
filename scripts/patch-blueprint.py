@@ -50,9 +50,33 @@ if "productname" not in s:
     )
 
 if icon and 'self.defines["icon"]' not in s:
+    # Windows-only block:
+    #   - icon         : path to TCM .ico for installer + Add/Remove Programs entry
+    #   - executable   : tells Craft's NullsoftInstallerPackager to create a Start
+    #                    Menu shortcut named "The Cloud Market" pointing at the
+    #                    main exe. Without this, no shortcut is created and the
+    #                    user cannot find the app after install.
+    #   - registry_hook: raw NSIS injected into the install Section. Writes
+    #                    HKCU\Software\Microsoft\Windows\CurrentVersion\Run so
+    #                    nextcloud.exe auto-starts at every login (parity with
+    #                    Dropbox / OneDrive). Tray icon always present, sync
+    #                    daemon always running.
+    #
+    # The registry_hook value must arrive at Craft as a Python string whose
+    # CONTENTS are literal NSIS code with single backslashes and embedded
+    # double-quotes around the value. Build the value at patch-script runtime
+    # then use repr() to embed it as a syntactically-correct Python literal.
+    run_key_nsis = (
+        r'WriteRegStr HKCU '
+        r'"Software\Microsoft\Windows\CurrentVersion\Run" '
+        r'"TheCloudMarket" '
+        r'"$INSTDIR\bin\nextcloud.exe"'
+    )
     icon_block = (
         '        if CraftCore.compiler.isWindows:\n'
         f'            self.defines["icon"] = r"{icon}"\n'
+        '            self.defines["executable"] = "bin/nextcloud.exe"\n'
+        f'            self.defines["registry_hook"] = {repr(run_key_nsis)}\n'
     )
     s = re.sub(
         r'(self\.defines\["productname"\][^\n]*\n)',
