@@ -105,15 +105,19 @@ _blacklist_patterns = [
     r"plugins/.*",
     r"translations/.*",
     r"qml/.*",
+    # Apple framework directories at the archive root duplicate what
+    # macdeployqt already placed under .app/Contents/Frameworks/. Their
+    # internal Versions/Current symlinks point at different absolute paths
+    # in the two copies, so mergeTree refuses to merge them.
+    r"lib/.+\.framework/.*",
     # Build-only artifacts that should never ship:
     r"mkspecs/.*",
     r"doc/.*",
     r"include/.*",
     r"libexec/.*",
-    # NOTE: do NOT blacklist lib/, share/, or bin/ — Craft's library fixer
-    # sources runtime dylibs from archive/lib/ to populate
-    # TheCloudMarket.app/Contents/Frameworks/ at packaging time, and
-    # archive/share/ feeds .app/Contents/Resources/ for some assets.
+    # NOTE: do NOT blacklist lib/.*\.dylib (or lib/, share/, or bin/) —
+    # Craft's library fixer sources runtime dylibs from archive/lib/ to
+    # populate TheCloudMarket.app/Contents/Frameworks/ at packaging time.
 ]
 if not _op.exists(_blacklist) or "TCM additions" not in open(_blacklist, encoding="utf-8").read():
     with open(_blacklist, "w", encoding="utf-8") as f:
