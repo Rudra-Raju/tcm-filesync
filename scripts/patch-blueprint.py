@@ -93,13 +93,23 @@ import os.path as _op
 _blueprint_dir = _op.dirname(p)
 _blacklist = _op.join(_blueprint_dir, "blacklist.txt")
 _blacklist_patterns = [
-    "# TCM additions: skip the redundant top-level plugins/translations trees",
-    "# that Craft otherwise tries to merge into TheCloudMarket.app/Contents/PlugIns",
-    "# (mergeTree fails with 'how to merge folder ... into file ...').",
-    "# Craft wraps each line as '^...$', so patterns must match the full",
-    "# archive-relative path. Use .* to match any descendant.",
+    "# TCM additions: macdeployqt populates everything we need INSIDE",
+    "# TheCloudMarket.app/Contents/{PlugIns,Frameworks,Resources}. Craft",
+    "# also ships parallel top-level trees (Qt's regular install layout)",
+    "# which collide on mergeTree because the inner names sometimes resolve",
+    "# to a folder on one side and a file on the other (versioned framework",
+    "# stubs vs flat dylibs, qmldir as both metadata file and dir, etc.).",
+    "# Drop every redundant top-level tree on the archive root.",
+    "# Each line is wrapped by Craft as ^...$ — use .* to match descendants.",
     r"plugins/.*",
     r"translations/.*",
+    r"qml/.*",
+    r"mkspecs/.*",
+    r"lib/.*",
+    r"share/.*",
+    r"doc/.*",
+    r"include/.*",
+    r"libexec/.*",
 ]
 if not _op.exists(_blacklist) or "TCM additions" not in open(_blacklist, encoding="utf-8").read():
     with open(_blacklist, "w", encoding="utf-8") as f:
