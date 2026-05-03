@@ -109,7 +109,12 @@ _blacklist_patterns = [
     # macdeployqt already placed under .app/Contents/Frameworks/. Their
     # internal Versions/Current symlinks point at different absolute paths
     # in the two copies, so mergeTree refuses to merge them.
-    r"lib/.+\.framework/.*",
+    # IMPORTANT: filterDirectoryContent runs with handleAppBundleAsFile=True
+    # on macOS, which treats .framework / .app dirs as a single file unit.
+    # The path passed to the blacklist is the bundle path itself
+    # (e.g. "lib/QtMultimediaQuick.framework") with NO trailing content,
+    # so the regex must match the bundle path directly, not its contents.
+    r"lib/[^/]+\.framework",
     # Build-only artifacts that should never ship:
     r"mkspecs/.*",
     r"doc/.*",
@@ -119,9 +124,10 @@ _blacklist_patterns = [
     # Craft's library fixer sources runtime dylibs from archive/lib/ to
     # populate TheCloudMarket.app/Contents/Frameworks/ at packaging time.
 ]
-if not _op.exists(_blacklist) or "TCM additions" not in open(_blacklist, encoding="utf-8").read():
-    with open(_blacklist, "w", encoding="utf-8") as f:
-        f.write("\n".join(_blacklist_patterns) + "\n")
+# Always overwrite — Craft caches the cloned blueprints dir between CI runs,
+# so an idempotency guard here would let a stale TCM blacklist linger.
+with open(_blacklist, "w", encoding="utf-8") as f:
+    f.write("\n".join(_blacklist_patterns) + "\n")
 
 with open(p, "w", encoding="utf-8") as f:
     f.write(s)
