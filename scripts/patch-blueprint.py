@@ -84,9 +84,29 @@ if icon and 'self.defines["icon"]' not in s:
         s,
     )
 
+# Mac-only: drop a blacklist.txt next to the patched blueprint. Craft loads it
+# automatically (the upstream blueprint already calls
+# `self.blacklist_file.append(os.path.join(self.packageDir(), 'blacklist.txt'))`).
+# Without this, Craft's mergeTree fails on a stray top-level `plugins/` directory
+# whose entries collide with files already inside the .app bundle.
+import os.path as _op
+_blueprint_dir = _op.dirname(p)
+_blacklist = _op.join(_blueprint_dir, "blacklist.txt")
+_blacklist_patterns = [
+    "# TCM additions: skip the redundant top-level plugins tree that",
+    "# Craft otherwise tries to merge into TheCloudMarket.app/Contents/PlugIns",
+    "# (mergeTree fails with 'how to merge folder ... into file ...').",
+    r"^plugins/",
+    r"^translations/",
+]
+if not _op.exists(_blacklist) or "TCM additions" not in open(_blacklist, encoding="utf-8").read():
+    with open(_blacklist, "w", encoding="utf-8") as f:
+        f.write("\n".join(_blacklist_patterns) + "\n")
+
 with open(p, "w", encoding="utf-8") as f:
     f.write(s)
 
 print(f"Patched {p}")
+print(f"Wrote   {_blacklist}")
 if icon:
     print(f"  icon: {icon}")
