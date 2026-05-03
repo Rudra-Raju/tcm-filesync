@@ -101,15 +101,19 @@ _blacklist_patterns = [
     "# stubs vs flat dylibs, qmldir as both metadata file and dir, etc.).",
     "# Drop every redundant top-level tree on the archive root.",
     "# Each line is wrapped by Craft as ^...$ — use .* to match descendants.",
+    # Confirmed-redundant trees (already mirrored inside the .app):
     r"plugins/.*",
     r"translations/.*",
     r"qml/.*",
+    # Build-only artifacts that should never ship:
     r"mkspecs/.*",
-    r"lib/.*",
-    r"share/.*",
     r"doc/.*",
     r"include/.*",
     r"libexec/.*",
+    # NOTE: do NOT blacklist lib/, share/, or bin/ — Craft's library fixer
+    # sources runtime dylibs from archive/lib/ to populate
+    # TheCloudMarket.app/Contents/Frameworks/ at packaging time, and
+    # archive/share/ feeds .app/Contents/Resources/ for some assets.
 ]
 if not _op.exists(_blacklist) or "TCM additions" not in open(_blacklist, encoding="utf-8").read():
     with open(_blacklist, "w", encoding="utf-8") as f:
