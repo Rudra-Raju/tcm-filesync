@@ -105,7 +105,7 @@ jobs:
           Write-Host "Installer: $($src.Name) -> TheCloudMarket-FileSync-Setup.exe ($([math]::Round($src.Length/1MB,1)) MB)"
 
       - name: Upload Windows artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: TheCloudMarket-FileSync-Windows
           path: TheCloudMarket-FileSync-Setup.exe
@@ -200,7 +200,7 @@ jobs:
           ls -lh TheCloudMarket-FileSync.dmg
 
       - name: Upload macOS artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: TheCloudMarket-FileSync-macOS
           path: TheCloudMarket-FileSync.*
