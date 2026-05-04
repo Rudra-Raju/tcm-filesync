@@ -160,24 +160,44 @@ jobs:
           echo "--- patched defines ---"
           grep "self.defines\|^import os" "$blueprint" | head -10
 
-      - name: Package macOS installer
+      # Craft's MacBasePackager merges Qt's regular install layout
+      # (lib/, plugins/, qml/, etc.) into the .app/Contents/* tree it
+      # already built. The merge step keeps hitting per-file conflicts
+      # (symlink vs file, dylib-as-folder vs dylib-as-file) that we have
+      # no clean blacklist for. Skip Craft's --package and DMG the built
+      # .app ourselves — macdeployqt has already populated everything
+      # the .app needs.
+      - name: Locate built TheCloudMarket.app
+        id: locate_app
         run: |
-          python "$CRAFT_MASTER_LOCATION/CraftMaster.py" --config "$CRAFT_MASTER_CONFIG" --target "$CRAFT_TARGET" -c \
-            --package nextcloud-client
-
-      - name: Find and rename installer
-        run: |
-          pkg=$(find "$CRAFT_TARGET" -name "*.pkg" -o -name "*.dmg" | head -1)
-          if [ -z "$pkg" ]; then
-            echo "Looking for installers..."
-            find "$CRAFT_TARGET" -name "*.pkg" -o -name "*.dmg" -o -name "*.app"
-            echo "No installer found, checking build output..."
-            find "$CRAFT_TARGET" -name "TheCloudMarket*" -o -name "thecloudmarket*" | head -10
+          app=$(find "$CRAFT_TARGET" -type d -name "TheCloudMarket.app" -path "*/build/nextcloud-client/*" | head -1)
+          if [ -z "$app" ]; then
+            echo "::error::TheCloudMarket.app not found"
+            find "$CRAFT_TARGET" -type d -name "*.app" | head -20
             exit 1
           fi
-          ext="${pkg##*.}"
-          cp "$pkg" "TheCloudMarket-FileSync.$ext"
-          ls -lh "TheCloudMarket-FileSync.$ext"
+          echo "Found: $app"
+          echo "app=$app" >> "$GITHUB_OUTPUT"
+          echo "MacOS contents:"
+          ls "$app/Contents/MacOS/" | head -20
+          echo "Frameworks count: $(ls "$app/Contents/Frameworks/" 2>/dev/null | wc -l)"
+          echo "PlugIns count:    $(ls "$app/Contents/PlugIns/" 2>/dev/null | wc -l)"
+
+      - name: Build DMG from .app
+        env:
+          APP_PATH: ${{ steps.locate_app.outputs.app }}
+        run: |
+          # Stage the .app into a clean dir for hdiutil
+          stage="$RUNNER_TEMP/dmg-stage"
+          rm -rf "$stage" && mkdir -p "$stage"
+          cp -R "$APP_PATH" "$stage/"
+          ln -s /Applications "$stage/Applications"
+          hdiutil create \
+            -volname "The Cloud Market" \
+            -srcfolder "$stage" \
+            -ov -format UDZO \
+            "TheCloudMarket-FileSync.dmg"
+          ls -lh TheCloudMarket-FileSync.dmg
 
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
